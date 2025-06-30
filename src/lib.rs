@@ -95,7 +95,7 @@ impl SolanaDataClient {
     pub async fn search_tokens(&self, query: &str, limit: Option<i64>) -> Result<Vec<TokenMint>> {
         let mut url = format!("{}/api/tokens/search?q={}", self.base_url, query);
         if let Some(limit) = limit {
-            url.push_str(&format!("&limit={}", limit));
+            url.push_str(&format!("&limit={limit}"));
         }
 
         let response = self.client.get(&url).send().await?;
@@ -176,16 +176,16 @@ impl SolanaDataClient {
         let mut params = Vec::new();
 
         if let Some(token) = token_mint {
-            params.push(format!("token_mint={}", token));
+            params.push(format!("token_mint={token}"));
         }
         if let Some(start) = start_slot {
-            params.push(format!("start_slot={}", start));
+            params.push(format!("start_slot={start}"));
         }
         if let Some(end) = end_slot {
-            params.push(format!("end_slot={}", end));
+            params.push(format!("end_slot={end}"));
         }
         if let Some(limit) = limit {
-            params.push(format!("limit={}", limit));
+            params.push(format!("limit={limit}"));
         }
 
         if !params.is_empty() {

@@ -1610,7 +1610,6 @@ async fn main() -> Result<()> {
             // Spawn a dedicated progress update task
             let progress_handle = tokio::spawn({
                 let stats_for_progress = stats_for_progress.clone();
-                let total_slots = total_slots;
                 async move {
                     let mut interval = tokio::time::interval(Duration::from_millis(250)); // Update every 250ms
                     let start_time = std::time::Instant::now();
@@ -1767,7 +1766,7 @@ async fn main() -> Result<()> {
                                             data: file_data,
                                         };
 
-                                        if let Err(_) = write_tx.send(batch).await {
+                                        if write_tx.send(batch).await.is_err() {
                                             eprintln!("\n❌ Failed to queue write for slot {}", slot);
                                             stats.failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                         } else {
@@ -2172,7 +2171,7 @@ mod tests {
     #[test]
     fn test_slot_range_calculation() {
         // Test epoch 0
-        let start_slot = 0 * SLOTS_PER_EPOCH;
+        let start_slot = 0;
         let end_slot = SLOTS_PER_EPOCH - 1;
         assert_eq!(start_slot, 0);
         assert_eq!(end_slot, 431999);
