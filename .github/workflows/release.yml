@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: solana-data-fetch-linux-amd64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: solana-data-fetch-windows-amd64.exe
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: solana-data-fetch-macos-amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: solana-data-fetch-macos-arm64
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+    
+    - name: Build
+      run: cargo build --release --target ${{ matrix.target }}
+    
+    - name: Rename binary
+      shell: bash
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          cp target/${{ matrix.target }}/release/solana-data-fetch.exe ${{ matrix.name }}
+        else
+          cp target/${{ matrix.target }}/release/solana-data-fetch ${{ matrix.name }}
+        fi
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.name }}
+        path: ${{ matrix.name }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+    
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: artifacts/*/*
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

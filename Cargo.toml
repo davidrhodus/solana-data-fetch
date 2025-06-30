@@ -1,0 +1,39 @@
+[package]
+name = "solana-data-fetch"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance CLI for downloading Solana blockchain data"
+homepage = "https://github.com/solana-data-fetch/solana-data-fetch"
+repository = "https://github.com/solana-data-fetch/solana-data-fetch"
+license = "MIT"
+keywords = ["solana", "blockchain", "cli", "data"]
+categories = ["command-line-utilities", "cryptography::cryptocurrencies"]
+
+[lib]
+name = "solana_data_fetch"
+path = "src/lib.rs"
+
+[[bin]]
+name = "solana-data-fetch"
+path = "src/main.rs"
+
+[dependencies]
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.0", features = ["derive"] }
+futures = "0.3"
+dirs = "5.0"
+governor = "0.6"
+nonzero_ext = "0.3"
+indicatif = "0.17"
+rpassword = "7.2"
+zstd = "0.13"
+
+[dev-dependencies]
+tempfile = "3.0"
+assert_cmd = "2.0"
+predicates = "3.0"
