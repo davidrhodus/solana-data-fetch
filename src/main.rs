@@ -537,9 +537,7 @@ fn check_disk_space(path: &str, required_gb: f64) -> Result<bool> {
         Ok(_) => {
             // On Unix systems, we could use statvfs, but for portability
             // we'll just warn the user about space requirements
-            println!(
-                "⚠️  Please ensure you have at least {required_gb:.0} GB free disk space"
-            );
+            println!("⚠️  Please ensure you have at least {required_gb:.0} GB free disk space");
             Ok(true)
         }
         Err(_) => {
@@ -1533,9 +1531,7 @@ async fn main() -> Result<()> {
             let start_slot = epoch * SLOTS_PER_EPOCH;
             let end_slot = (epoch + 1) * SLOTS_PER_EPOCH - 1;
 
-            println!(
-                "📊 Epoch {epoch} spans slots {start_slot} to {end_slot}"
-            );
+            println!("📊 Epoch {epoch} spans slots {start_slot} to {end_slot}");
             println!("   Total slots: {SLOTS_PER_EPOCH}");
 
             // Check disk space - estimate based on epoch
@@ -1869,9 +1865,7 @@ async fn main() -> Result<()> {
             );
             if completed_count > 0 {
                 let avg_slot_time = elapsed.as_secs_f64() / completed_count as f64;
-                println!(
-                    "   📦 Avg time per slot: {avg_slot_time:.2}s (includes download + save)"
-                );
+                println!("   📦 Avg time per slot: {avg_slot_time:.2}s (includes download + save)");
             }
         }
 
