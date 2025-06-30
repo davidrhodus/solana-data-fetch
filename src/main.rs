@@ -1,11 +1,11 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use futures::stream::{self, StreamExt};
-use governor::{Jitter, Quota, RateLimiter};
 use governor::{
     clock::DefaultClock,
     state::{InMemoryState, NotKeyed},
 };
+use governor::{Jitter, Quota, RateLimiter};
 use nonzero_ext::nonzero;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -55,23 +55,33 @@ enum SlotError {
 impl From<anyhow::Error> for SlotError {
     fn from(err: anyhow::Error) -> Self {
         let error_str = err.to_string();
-        
-        if error_str.contains("404") || error_str.contains("Not found") || error_str.contains("not found") {
+
+        if error_str.contains("404")
+            || error_str.contains("Not found")
+            || error_str.contains("not found")
+        {
             SlotError::NotFound
-        } else if error_str.contains("429") || error_str.contains("rate limit") || error_str.contains("Rate limit exceeded") {
+        } else if error_str.contains("429")
+            || error_str.contains("rate limit")
+            || error_str.contains("Rate limit exceeded")
+        {
             SlotError::RateLimited
-        } else if error_str.contains("Invalid response format") || error_str.contains("Invalid JSON") || 
-                  error_str.contains("EOF while parsing") || error_str.contains("contains no data") {
+        } else if error_str.contains("Invalid response format")
+            || error_str.contains("Invalid JSON")
+            || error_str.contains("EOF while parsing")
+            || error_str.contains("contains no data")
+        {
             SlotError::ParseError
-        } else if error_str.contains("Network") || error_str.contains("timeout") || error_str.contains("connection") {
+        } else if error_str.contains("Network")
+            || error_str.contains("timeout")
+            || error_str.contains("connection")
+        {
             SlotError::NetworkError(error_str)
         } else {
             SlotError::Other(error_str)
         }
     }
 }
-
-
 
 // File write batch for async channel
 struct FileWriteBatch {
@@ -130,7 +140,7 @@ enum Commands {
         /// Disable compression (files will be larger but save CPU)
         #[arg(long)]
         no_compression: bool,
-        
+
         /// Disable client-side rate limiting entirely (use when server has no limits)
         #[arg(long)]
         no_rate_limit: bool,
@@ -521,13 +531,16 @@ fn check_disk_space(path: &str, required_gb: f64) -> Result<bool> {
     // For now, just check if we can create the directory
     // More sophisticated disk space checking would require platform-specific code
     let target_path = Path::new(path);
-    
+
     // Try to get filesystem stats using std::fs
     match fs::metadata(target_path.parent().unwrap_or(Path::new("."))) {
         Ok(_) => {
             // On Unix systems, we could use statvfs, but for portability
             // we'll just warn the user about space requirements
-            println!("⚠️  Please ensure you have at least {:.0} GB free disk space", required_gb);
+            println!(
+                "⚠️  Please ensure you have at least {:.0} GB free disk space",
+                required_gb
+            );
             Ok(true)
         }
         Err(_) => {
@@ -559,7 +572,7 @@ impl SolanaDataClient {
             .http2_keep_alive_timeout(Duration::from_secs(10))
             .build()
             .expect("Failed to build HTTP client");
-            
+
         let mut client = Self {
             client,
             base_url: API_BASE_URL.to_string(),
@@ -641,17 +654,22 @@ impl SolanaDataClient {
 
                     if status.is_success() {
                         // Use bytes() instead of json() for faster parsing
-                        let bytes = response.bytes().await
+                        let bytes = response
+                            .bytes()
+                            .await
                             .map_err(|_| anyhow::anyhow!("Failed to read response body"))?;
-                        
+
                         return serde_json::from_slice(&bytes)
                             .map_err(|_| anyhow::anyhow!("Invalid JSON response"));
                     } else if status.as_u16() == 429 {
                         retries += 1;
                         if retries > max_retries {
-                            return Err(anyhow::anyhow!("Rate limit exceeded after {} retries", max_retries));
+                            return Err(anyhow::anyhow!(
+                                "Rate limit exceeded after {} retries",
+                                max_retries
+                            ));
                         }
-                        
+
                         sleep(backoff).await;
                         backoff = backoff.min(Duration::from_secs(2)); // Cap at 2 seconds
                         continue;
@@ -667,7 +685,7 @@ impl SolanaDataClient {
                     if retries > max_retries {
                         return Err(anyhow::anyhow!("Network error: {}", e));
                     }
-                    
+
                     sleep(backoff).await;
                     backoff *= 2;
                     continue;
@@ -679,11 +697,12 @@ impl SolanaDataClient {
     // Add optimized get_full_slot_data method
     async fn get_full_slot_data_optimized(&self, slot_number: i64) -> Result<serde_json::Value> {
         let url = format!("{}/slot/{}", self.base_url, slot_number);
-        
+
         self.retry_request_no_limit(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     // Existing retry_request method
@@ -866,7 +885,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     async fn get_token_balances(
@@ -886,7 +906,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     // Slot endpoints
@@ -895,7 +916,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     // Token endpoints
@@ -930,7 +952,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     async fn search_tokens(&self, query: &str, limit: Option<i64>) -> Result<Vec<TokenMint>> {
@@ -943,7 +966,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     async fn get_token_info(&self, token_mint: &str) -> Result<TokenMint> {
@@ -951,7 +975,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     async fn get_token_volume(
@@ -968,7 +993,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     // Additional endpoints
@@ -977,7 +1003,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     async fn get_rate_limits(&self) -> Result<RateLimitsResponse> {
@@ -985,7 +1012,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     async fn get_full_slot_data(&self, slot_number: i64) -> Result<serde_json::Value> {
@@ -994,20 +1022,20 @@ impl SolanaDataClient {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
         })
-            .await
-            .map_err(|e| {
-                // Clean up technical error messages
-                let error_str = e.to_string();
-                if error_str.contains("Invalid response format")
-                    || error_str.contains("EOF while parsing")
-                {
-                    anyhow::anyhow!("Slot {} contains no data", slot_number)
-                } else if error_str.contains("404") {
-                    anyhow::anyhow!("Slot {} not found", slot_number)
-                } else {
-                    anyhow::anyhow!("Unable to fetch slot {}", slot_number)
-                }
-            })
+        .await
+        .map_err(|e| {
+            // Clean up technical error messages
+            let error_str = e.to_string();
+            if error_str.contains("Invalid response format")
+                || error_str.contains("EOF while parsing")
+            {
+                anyhow::anyhow!("Slot {} contains no data", slot_number)
+            } else if error_str.contains("404") {
+                anyhow::anyhow!("Slot {} not found", slot_number)
+            } else {
+                anyhow::anyhow!("Unable to fetch slot {}", slot_number)
+            }
+        })
     }
 
     // Alternative swap volume endpoint
@@ -1025,7 +1053,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     // Authentication endpoints
@@ -1039,7 +1068,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.post(&url).json(&body);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     async fn login(&self, email: &str, password: &str) -> Result<AuthResponse> {
@@ -1052,7 +1082,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.post(&url).json(&body);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     // API Key endpoints
@@ -1065,7 +1096,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.post(&url).json(&body);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     async fn list_api_keys(&self) -> Result<Vec<ApiKey>> {
@@ -1073,7 +1105,8 @@ impl SolanaDataClient {
         self.retry_request(|| {
             let req = self.client.get(&url);
             self.add_auth_headers(req).send()
-        }).await
+        })
+        .await
     }
 
     async fn delete_api_key(&self, key_id: i32) -> Result<()> {
@@ -1082,7 +1115,7 @@ impl SolanaDataClient {
             let req = self.client.delete(&url);
             self.add_auth_headers(req).send()
         })
-            .await
+        .await
     }
 }
 
@@ -1509,15 +1542,15 @@ async fn main() -> Result<()> {
 
             // Check disk space - estimate based on epoch
             let estimated_gb = if epoch < 100 {
-                5.0  // Early epochs are small
+                5.0 // Early epochs are small
             } else if epoch < 500 {
-                50.0  // Medium epochs
+                50.0 // Medium epochs
             } else {
-                200.0  // Recent epochs with 10MB+ slots, compressed
+                200.0 // Recent epochs with 10MB+ slots, compressed
             };
-            
+
             println!("💾 Estimated disk space needed: ~{:.0} GB", estimated_gb);
-            check_disk_space(".", estimated_gb * 1.2)?;  // 20% safety margin
+            check_disk_space(".", estimated_gb * 1.2)?; // 20% safety margin
 
             // Create directory for the epoch
             let dir_name = format!("epoch_{}", epoch);
@@ -1526,7 +1559,7 @@ async fn main() -> Result<()> {
                 std::process::exit(1);
             }
             println!("📁 Created directory: {}", dir_name);
-            
+
             // Show compression status
             if no_compression {
                 println!("📄 Compression: Disabled (files will be larger)");
@@ -1555,7 +1588,7 @@ async fn main() -> Result<()> {
 
             let start_time = std::time::Instant::now();
             let total_slots = slots_to_download.len();
-            
+
             // Use the new grouped stats structure
             let stats = DownloadStats::new();
             let stats_for_progress = stats.clone();
@@ -1564,7 +1597,7 @@ async fn main() -> Result<()> {
 
             // Create a channel for file writes with bounded capacity
             let (write_tx, mut write_rx) = tokio::sync::mpsc::channel::<FileWriteBatch>(100);
-            
+
             // Spawn a dedicated file writer task
             let writer_handle = tokio::spawn(async move {
                 while let Some(batch) = write_rx.recv().await {
@@ -1573,7 +1606,7 @@ async fn main() -> Result<()> {
                     }
                 }
             });
-            
+
             // Spawn a dedicated progress update task
             let progress_handle = tokio::spawn({
                 let stats_for_progress = stats_for_progress.clone();
@@ -1581,31 +1614,55 @@ async fn main() -> Result<()> {
                 async move {
                     let mut interval = tokio::time::interval(Duration::from_millis(250)); // Update every 250ms
                     let start_time = std::time::Instant::now();
-                    
+
                     loop {
                         interval.tick().await;
-                        
-                        let done = stats_for_progress.completed.load(std::sync::atomic::Ordering::Relaxed);
-                        let err_count = stats_for_progress.failed.load(std::sync::atomic::Ordering::Relaxed);
-                        let skip_count = stats_for_progress.skipped.load(std::sync::atomic::Ordering::Relaxed);
-                        let nf_count = stats_for_progress.not_found.load(std::sync::atomic::Ordering::Relaxed);
-                        let rl_count = stats_for_progress.rate_limited.load(std::sync::atomic::Ordering::Relaxed);
-                        let req_count = stats_for_progress.requests_made.load(std::sync::atomic::Ordering::Relaxed);
+
+                        let done = stats_for_progress
+                            .completed
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        let err_count = stats_for_progress
+                            .failed
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        let skip_count = stats_for_progress
+                            .skipped
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        let nf_count = stats_for_progress
+                            .not_found
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        let rl_count = stats_for_progress
+                            .rate_limited
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        let req_count = stats_for_progress
+                            .requests_made
+                            .load(std::sync::atomic::Ordering::Relaxed);
 
                         // Total processed = all operations
                         let processed = done + err_count + skip_count + nf_count + rl_count;
-                        
+
                         // Check if we're done
                         if processed >= total_slots {
                             break;
                         }
-                        
+
                         let remaining = total_slots.saturating_sub(processed);
 
                         let elapsed = start_time.elapsed().as_secs_f64();
-                        let rate = if elapsed > 0.0 { processed as f64 / elapsed } else { 0.0 };
-                        let request_rate = if elapsed > 0.0 { req_count as f64 / elapsed } else { 0.0 };
-                        let eta_seconds = if rate > 0.0 { remaining as f64 / rate } else { 0.0 };
+                        let rate = if elapsed > 0.0 {
+                            processed as f64 / elapsed
+                        } else {
+                            0.0
+                        };
+                        let request_rate = if elapsed > 0.0 {
+                            req_count as f64 / elapsed
+                        } else {
+                            0.0
+                        };
+                        let eta_seconds = if rate > 0.0 {
+                            remaining as f64 / rate
+                        } else {
+                            0.0
+                        };
 
                         // Format time remaining
                         let eta_formatted = if eta_seconds > 3600.0 {
@@ -1622,7 +1679,8 @@ async fn main() -> Result<()> {
                         // Create progress bar
                         let bar_width: usize = 30;
                         let filled = ((percent / 100.0) * bar_width as f64) as usize;
-                        let bar = format!("[{}{}]",
+                        let bar = format!(
+                            "[{}{}]",
                             "=".repeat(filled),
                             " ".repeat(bar_width.saturating_sub(filled))
                         );
@@ -1634,10 +1692,10 @@ async fn main() -> Result<()> {
                     }
                 }
             });
-            
+
             // Keep the original write_tx for dropping later
             let write_tx_for_drop = write_tx.clone();
-            
+
             // Create a stream of download tasks
             let download_tasks = stream::iter(slots_to_download)
                 .map(move |slot| {
@@ -1674,7 +1732,7 @@ async fn main() -> Result<()> {
                         } else {
                             client.get_full_slot_data(slot).await
                         };
-                        
+
                         match slot_result {
                             Ok(data) => {
                                 // Save to file - use to_vec for 10x faster serialization
@@ -1702,13 +1760,13 @@ async fn main() -> Result<()> {
                                         } else {
                                             json_bytes
                                         };
-                                        
+
                                         // Send to write channel
                                         let batch = FileWriteBatch {
                                             path: file_path,
                                             data: file_data,
                                         };
-                                        
+
                                         if let Err(_) = write_tx.send(batch).await {
                                             eprintln!("\n❌ Failed to queue write for slot {}", slot);
                                             stats.failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -1746,29 +1804,41 @@ async fn main() -> Result<()> {
 
             // Execute all downloads
             download_tasks.collect::<Vec<()>>().await;
-            
+
             // Close the write channel and wait for writer to finish
             drop(write_tx_for_drop);
             writer_handle.await?;
-            
+
             // Cancel progress thread
             progress_handle.abort();
 
             // Final progress update
             print!("\r"); // Clear the progress line
-            
+
             let elapsed = start_time.elapsed();
-            let completed_count = stats_for_final.completed.load(std::sync::atomic::Ordering::Relaxed);
-            let failed_count = stats_for_final.failed.load(std::sync::atomic::Ordering::Relaxed);
-            let skipped_count = stats_for_final.skipped.load(std::sync::atomic::Ordering::Relaxed);
-            let not_found_count = stats_for_final.not_found.load(std::sync::atomic::Ordering::Relaxed);
-            let rate_limited_count = stats_for_final.rate_limited.load(std::sync::atomic::Ordering::Relaxed);
+            let completed_count = stats_for_final
+                .completed
+                .load(std::sync::atomic::Ordering::Relaxed);
+            let failed_count = stats_for_final
+                .failed
+                .load(std::sync::atomic::Ordering::Relaxed);
+            let skipped_count = stats_for_final
+                .skipped
+                .load(std::sync::atomic::Ordering::Relaxed);
+            let not_found_count = stats_for_final
+                .not_found
+                .load(std::sync::atomic::Ordering::Relaxed);
+            let rate_limited_count = stats_for_final
+                .rate_limited
+                .load(std::sync::atomic::Ordering::Relaxed);
             let total_processed = completed_count
                 + failed_count
                 + skipped_count
                 + not_found_count
                 + rate_limited_count;
-            let total_requests = stats_for_final.requests_made.load(std::sync::atomic::Ordering::Relaxed);
+            let total_requests = stats_for_final
+                .requests_made
+                .load(std::sync::atomic::Ordering::Relaxed);
 
             println!("\n\n✅ Download complete!");
             println!("📊 Summary:");
