@@ -538,8 +538,7 @@ fn check_disk_space(path: &str, required_gb: f64) -> Result<bool> {
             // On Unix systems, we could use statvfs, but for portability
             // we'll just warn the user about space requirements
             println!(
-                "⚠️  Please ensure you have at least {:.0} GB free disk space",
-                required_gb
+                "⚠️  Please ensure you have at least {required_gb:.0} GB free disk space"
             );
             Ok(true)
         }
@@ -630,7 +629,7 @@ impl SolanaDataClient {
         if let Some(api_key) = &self.api_key {
             request_builder.header("X-API-Key", api_key)
         } else if let Some(token) = &self.token {
-            request_builder.header("Authorization", format!("Bearer {}", token))
+            request_builder.header("Authorization", format!("Bearer {token}"))
         } else {
             request_builder
         }
@@ -879,7 +878,7 @@ impl SolanaDataClient {
         );
 
         if let Some(limit) = limit {
-            url.push_str(&format!("?limit={}", limit));
+            url.push_str(&format!("?limit={limit}"));
         }
 
         self.retry_request(|| {
@@ -900,7 +899,7 @@ impl SolanaDataClient {
         );
 
         if let Some(slot) = slot {
-            url.push_str(&format!("?slot={}", slot));
+            url.push_str(&format!("?slot={slot}"));
         }
 
         self.retry_request(|| {
@@ -932,16 +931,16 @@ impl SolanaDataClient {
         let mut params = Vec::new();
 
         if let Some(mint) = token_mint {
-            params.push(format!("token_mint={}", mint));
+            params.push(format!("token_mint={mint}"));
         }
         if let Some(start) = start_slot {
-            params.push(format!("start_slot={}", start));
+            params.push(format!("start_slot={start}"));
         }
         if let Some(end) = end_slot {
-            params.push(format!("end_slot={}", end));
+            params.push(format!("end_slot={end}"));
         }
         if let Some(limit) = limit {
-            params.push(format!("limit={}", limit));
+            params.push(format!("limit={limit}"));
         }
 
         if !params.is_empty() {
@@ -960,7 +959,7 @@ impl SolanaDataClient {
         let mut url = format!("{}/api/tokens/search?q={}", self.base_url, query);
 
         if let Some(limit) = limit {
-            url.push_str(&format!("&limit={}", limit));
+            url.push_str(&format!("&limit={limit}"));
         }
 
         self.retry_request(|| {
@@ -987,7 +986,7 @@ impl SolanaDataClient {
         let mut url = format!("{}/api/tokens/{}/volume", self.base_url, token_mint);
 
         if let Some(days) = days {
-            url.push_str(&format!("?days={}", days));
+            url.push_str(&format!("?days={days}"));
         }
 
         self.retry_request(|| {
@@ -1047,7 +1046,7 @@ impl SolanaDataClient {
     ) -> Result<Vec<TokenSwapVolume>> {
         let mut url = format!("{}/api/swaps/{}/volume", self.base_url, token_mint);
         if let Some(days) = days {
-            url.push_str(&format!("?days={}", days));
+            url.push_str(&format!("?days={days}"));
         }
 
         self.retry_request(|| {
@@ -1124,19 +1123,19 @@ fn print_token_info(token: &TokenMint) {
     println!("\n📊 Token Information:");
     println!("  Mint: {}", token.mint_address);
     if let Some(name) = &token.name {
-        println!("  Name: {}", name);
+        println!("  Name: {name}");
     }
     if let Some(symbol) = &token.symbol {
-        println!("  Symbol: {}", symbol);
+        println!("  Symbol: {symbol}");
     }
     if let Some(decimals) = token.decimals {
-        println!("  Decimals: {}", decimals);
+        println!("  Decimals: {decimals}");
     }
     if let Some(supply) = token.supply {
-        println!("  Supply: {:.2}", supply);
+        println!("  Supply: {supply:.2}");
     }
     if let Some(first_seen) = token.first_seen_slot {
-        println!("  First Seen: Slot {}", first_seen);
+        println!("  First Seen: Slot {first_seen}");
     }
 }
 
@@ -1152,10 +1151,10 @@ fn print_swap_info(swap: &TokenSwap) {
         let datetime = chrono::DateTime::from_timestamp(time, 0)
             .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
             .unwrap_or_else(|| "Unknown".to_string());
-        println!("  Time: {}", datetime);
+        println!("  Time: {datetime}");
     }
     if let Some(user) = &swap.user_address {
-        println!("  User: {}", user);
+        println!("  User: {user}");
     }
 }
 
@@ -1166,16 +1165,16 @@ fn print_account_activity(activity: &AccountActivity) {
     println!("  Slot: {}", activity.slot);
     println!("  Address: {}", activity.account_address);
     if let Some(activity_type) = &activity.activity_type {
-        println!("  Type: {}", activity_type);
+        println!("  Type: {activity_type}");
     }
     if let Some(amount) = activity.amount {
-        println!("  Amount: {:.4}", amount);
+        println!("  Amount: {amount:.4}");
     }
     if let Some(balance_change) = activity.balance_change {
-        println!("  Balance Change: {:.4}", balance_change);
+        println!("  Balance Change: {balance_change:.4}");
     }
     if let Some(token_mint) = &activity.token_mint {
-        println!("  Token: {}", token_mint);
+        println!("  Token: {token_mint}");
     }
 }
 
@@ -1185,7 +1184,7 @@ fn print_token_balance(balance: &TokenBalance) {
     println!("  Token: {}", balance.token_mint);
     println!("  Balance: {:.4}", balance.balance);
     if let Some(ui_amount) = balance.ui_amount {
-        println!("  UI Amount: {:.4}", ui_amount);
+        println!("  UI Amount: {ui_amount:.4}");
     }
     println!("  Slot: {}", balance.slot);
 }
@@ -1235,15 +1234,15 @@ fn print_api_key(key: &ApiKey) {
     } else {
         "***".to_string()
     };
-    println!("  Key: {}", masked_key);
+    println!("  Key: {masked_key}");
     println!("  Tier: {}", key.tier);
     println!("  Created: {}", key.created_at);
     if let Some(last_used) = &key.last_used_at {
-        println!("  Last Used: {}", last_used);
+        println!("  Last Used: {last_used}");
     }
     println!("  Request Count: {}", key.request_count);
     if let Some(ip) = &key.created_from_ip {
-        println!("  Created From IP: {}", ip);
+        println!("  Created From IP: {ip}");
     }
 }
 
@@ -1260,11 +1259,11 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::SearchToken { query, limit } => {
-            println!("🔍 Searching for tokens matching '{}'...", query);
+            println!("🔍 Searching for tokens matching '{query}'...");
             match client.search_tokens(&query, Some(limit)).await {
                 Ok(tokens) => {
                     if tokens.is_empty() {
-                        println!("No tokens found matching '{}'", query);
+                        println!("No tokens found matching '{query}'");
                     } else {
                         println!("Found {} tokens:", tokens.len());
                         for token in tokens {
@@ -1274,20 +1273,20 @@ async fn main() -> Result<()> {
                     }
                 }
                 Err(e) => {
-                    println!("❌ Failed to search tokens: {}", e);
+                    println!("❌ Failed to search tokens: {e}");
                     std::process::exit(1);
                 }
             }
         }
 
         Commands::TokenInfo { mint } => {
-            println!("🪙 Getting token information for {}...", mint);
+            println!("🪙 Getting token information for {mint}...");
             match client.get_token_info(&mint).await {
                 Ok(token) => {
                     print_token_info(&token);
                 }
                 Err(e) => {
-                    println!("❌ Failed to get token info: {}", e);
+                    println!("❌ Failed to get token info: {e}");
                     std::process::exit(1);
                 }
             }
@@ -1315,7 +1314,7 @@ async fn main() -> Result<()> {
                     }
                 }
                 Err(e) => {
-                    println!("❌ Failed to get swaps: {}", e);
+                    println!("❌ Failed to get swaps: {e}");
                     std::process::exit(1);
                 }
             }
@@ -1323,11 +1322,11 @@ async fn main() -> Result<()> {
 
         Commands::Slot { slot } => {
             let slot_number = slot.parse::<i64>().unwrap_or_else(|_| {
-                println!("❌ Invalid slot number: {}", slot);
+                println!("❌ Invalid slot number: {slot}");
                 std::process::exit(1);
             });
 
-            println!("📦 Getting metadata for slot {}...", slot_number);
+            println!("📦 Getting metadata for slot {slot_number}...");
             match client.get_slot_metadata(slot_number).await {
                 Ok(slot_data) => {
                     println!("\n📦 Slot Metadata:");
@@ -1335,17 +1334,17 @@ async fn main() -> Result<()> {
                     println!("  Epoch: {}", slot_data.epoch);
                     println!("  Transaction Count: {}", slot_data.transaction_count);
                     if let Some(height) = slot_data.block_height {
-                        println!("  Block Height: {}", height);
+                        println!("  Block Height: {height}");
                     }
                     if let Some(time) = slot_data.block_time {
                         let datetime = chrono::DateTime::from_timestamp(time, 0)
                             .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
                             .unwrap_or_else(|| "Unknown".to_string());
-                        println!("  Block Time: {}", datetime);
+                        println!("  Block Time: {datetime}");
                     }
                 }
                 Err(e) => {
-                    println!("❌ Failed to get slot metadata: {}", e);
+                    println!("❌ Failed to get slot metadata: {e}");
                     std::process::exit(1);
                 }
             }
@@ -1353,7 +1352,7 @@ async fn main() -> Result<()> {
 
         Commands::Account { command } => match command {
             AccountCommands::Activity { address, limit } => {
-                println!("📝 Getting activity for account {}...", address);
+                println!("📝 Getting activity for account {address}...");
                 match client.get_account_activity(&address, Some(limit)).await {
                     Ok(activities) => {
                         if activities.is_empty() {
@@ -1366,14 +1365,14 @@ async fn main() -> Result<()> {
                         }
                     }
                     Err(e) => {
-                        println!("❌ Failed to get account activity: {}", e);
+                        println!("❌ Failed to get account activity: {e}");
                         std::process::exit(1);
                     }
                 }
             }
 
             AccountCommands::Balances { address, slot } => {
-                println!("💰 Getting token balances for account {}...", address);
+                println!("💰 Getting token balances for account {address}...");
                 match client.get_token_balances(&address, slot).await {
                     Ok(balances) => {
                         if balances.is_empty() {
@@ -1386,7 +1385,7 @@ async fn main() -> Result<()> {
                         }
                     }
                     Err(e) => {
-                        println!("❌ Failed to get token balances: {}", e);
+                        println!("❌ Failed to get token balances: {e}");
                         std::process::exit(1);
                     }
                 }
@@ -1394,13 +1393,13 @@ async fn main() -> Result<()> {
         },
 
         Commands::Volume { mint, days } => {
-            println!("📊 Getting volume statistics for token {}...", mint);
+            println!("📊 Getting volume statistics for token {mint}...");
             match client.get_token_volume(&mint, Some(days)).await {
                 Ok(volumes) => {
                     if volumes.is_empty() {
                         println!("No volume data found for this token");
                     } else {
-                        println!("\n📈 Token Volume (last {} days):", days);
+                        println!("\n📈 Token Volume (last {days} days):");
                         for vol in volumes {
                             println!("\n  Date: {}", vol.day);
                             println!("  Swap Count: {}", vol.swap_count);
@@ -1409,7 +1408,7 @@ async fn main() -> Result<()> {
                     }
                 }
                 Err(e) => {
-                    println!("❌ Failed to get token volume: {}", e);
+                    println!("❌ Failed to get token volume: {e}");
                     std::process::exit(1);
                 }
             }
@@ -1424,10 +1423,10 @@ async fn main() -> Result<()> {
                     println!("  Capacity: {} entries", stats.capacity);
                     println!("  TTL: {} seconds", stats.ttl_seconds);
                     let utilization = (stats.entries as f64 / stats.capacity as f64) * 100.0;
-                    println!("  Utilization: {:.1}%", utilization);
+                    println!("  Utilization: {utilization:.1}%");
                 }
                 Err(e) => {
-                    println!("❌ Failed to get cache stats: {}", e);
+                    println!("❌ Failed to get cache stats: {e}");
                     std::process::exit(1);
                 }
             }
@@ -1439,7 +1438,7 @@ async fn main() -> Result<()> {
                 Ok(limits) => {
                     println!("\n⚙️  Rate Limit Configuration:");
                     if let Some(global_limit) = limits.config.global_rate_limit {
-                        println!("  Global Limit: {} requests/second", global_limit);
+                        println!("  Global Limit: {global_limit} requests/second");
                     }
                     println!(
                         "  Per-IP Limit: {} requests/second",
@@ -1457,21 +1456,21 @@ async fn main() -> Result<()> {
                         let block_rate = (limits.stats.blocked_requests as f64
                             / limits.stats.total_requests as f64)
                             * 100.0;
-                        println!("  Block Rate: {:.2}%", block_rate);
+                        println!("  Block Rate: {block_rate:.2}%");
                     }
                 }
                 Err(e) => {
-                    println!("❌ Failed to get rate limits: {}", e);
+                    println!("❌ Failed to get rate limits: {e}");
                     std::process::exit(1);
                 }
             }
         }
 
         Commands::SlotData { slot } => {
-            println!("📦 Getting full data for slot {}...", slot);
+            println!("📦 Getting full data for slot {slot}...");
             match client.get_full_slot_data(slot).await {
                 Ok(data) => {
-                    println!("\n🔍 Slot {} Full Data:", slot);
+                    println!("\n🔍 Slot {slot} Full Data:");
 
                     // Pretty print the JSON data
                     match serde_json::to_string_pretty(&data) {
@@ -1481,7 +1480,7 @@ async fn main() -> Result<()> {
                             let display_lines = lines.len().min(50);
 
                             for line in lines.iter().take(display_lines) {
-                                println!("{}", line);
+                                println!("{line}");
                             }
 
                             if lines.len() > display_lines {
@@ -1489,11 +1488,11 @@ async fn main() -> Result<()> {
                                 println!("\n💡 Tip: Pipe output to a file or jq for full data");
                             }
                         }
-                        Err(e) => println!("Failed to format JSON: {}", e),
+                        Err(e) => println!("Failed to format JSON: {e}"),
                     }
                 }
                 Err(e) => {
-                    println!("❌ Failed to get slot data: {}", e);
+                    println!("❌ Failed to get slot data: {e}");
                     std::process::exit(1);
                 }
             }
@@ -1507,14 +1506,14 @@ async fn main() -> Result<()> {
             no_compression,
             no_rate_limit,
         } => {
-            println!("📥 Downloading all slots for epoch {}...", epoch);
+            println!("📥 Downloading all slots for epoch {epoch}...");
 
             // Apply rate limit override if provided
             let mut client = client;
             if no_rate_limit {
                 println!("🚀 Rate limiting disabled for maximum performance");
             } else if let Some(rate_limit) = rate_limit {
-                println!("🔧 Overriding rate limit to {} requests/second", rate_limit);
+                println!("🔧 Overriding rate limit to {rate_limit} requests/second");
                 let quota = Quota::per_second(
                     std::num::NonZeroU32::new(rate_limit).unwrap_or(nonzero!(10u32)),
                 );
@@ -1526,7 +1525,7 @@ async fn main() -> Result<()> {
                 } else {
                     "anonymous"
                 };
-                println!("📊 Using {} rate limits", tier);
+                println!("📊 Using {tier} rate limits");
                 println!("💡 Tip: Use --no-rate-limit for maximum performance if server allows");
             }
 
@@ -1535,10 +1534,9 @@ async fn main() -> Result<()> {
             let end_slot = (epoch + 1) * SLOTS_PER_EPOCH - 1;
 
             println!(
-                "📊 Epoch {} spans slots {} to {}",
-                epoch, start_slot, end_slot
+                "📊 Epoch {epoch} spans slots {start_slot} to {end_slot}"
             );
-            println!("   Total slots: {}", SLOTS_PER_EPOCH);
+            println!("   Total slots: {SLOTS_PER_EPOCH}");
 
             // Check disk space - estimate based on epoch
             let estimated_gb = if epoch < 100 {
@@ -1549,16 +1547,16 @@ async fn main() -> Result<()> {
                 200.0 // Recent epochs with 10MB+ slots, compressed
             };
 
-            println!("💾 Estimated disk space needed: ~{:.0} GB", estimated_gb);
+            println!("💾 Estimated disk space needed: ~{estimated_gb:.0} GB");
             check_disk_space(".", estimated_gb * 1.2)?; // 20% safety margin
 
             // Create directory for the epoch
-            let dir_name = format!("epoch_{}", epoch);
+            let dir_name = format!("epoch_{epoch}");
             if let Err(e) = std::fs::create_dir_all(&dir_name) {
-                println!("❌ Failed to create directory '{}': {}", dir_name, e);
+                println!("❌ Failed to create directory '{dir_name}': {e}");
                 std::process::exit(1);
             }
-            println!("📁 Created directory: {}", dir_name);
+            println!("📁 Created directory: {dir_name}");
 
             // Show compression status
             if no_compression {
@@ -1568,7 +1566,7 @@ async fn main() -> Result<()> {
                 let num_cpus = std::thread::available_parallelism()
                     .map(|n| n.get())
                     .unwrap_or(1);
-                println!("🖥️  Using {} CPU cores for parallel compression", num_cpus);
+                println!("🖥️  Using {num_cpus} CPU cores for parallel compression");
             }
 
             // Build list of all slots to attempt downloading
@@ -1669,7 +1667,7 @@ async fn main() -> Result<()> {
                         } else if eta_seconds > 60.0 {
                             format!("{:.1}m", eta_seconds / 60.0)
                         } else {
-                            format!("{:.0}s", eta_seconds)
+                            format!("{eta_seconds:.0}s")
                         };
 
                         // Calculate percentage
@@ -1711,9 +1709,9 @@ async fn main() -> Result<()> {
 
                         // Determine file extension based on compression
                         let file_path = if compress {
-                            format!("{}/slot_{}.json.zst", dir, slot)
+                            format!("{dir}/slot_{slot}.json.zst")
                         } else {
-                            format!("{}/slot_{}.json", dir, slot)
+                            format!("{dir}/slot_{slot}.json")
                         };
 
                         // Skip if file exists and skip_existing is true
@@ -1746,12 +1744,12 @@ async fn main() -> Result<()> {
                                             }).await {
                                                 Ok(Ok(compressed)) => compressed,
                                                 Ok(Err(e)) => {
-                                                    eprintln!("\n❌ Compression failed for slot {}: {}", slot, e);
+                                                    eprintln!("\n❌ Compression failed for slot {slot}: {e}");
                                                     stats.failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                                     return;
                                                 }
                                                 Err(e) => {
-                                                    eprintln!("\n❌ Compression task failed for slot {}: {}", slot, e);
+                                                    eprintln!("\n❌ Compression task failed for slot {slot}: {e}");
                                                     stats.failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                                     return;
                                                 }
@@ -1767,14 +1765,14 @@ async fn main() -> Result<()> {
                                         };
 
                                         if write_tx.send(batch).await.is_err() {
-                                            eprintln!("\n❌ Failed to queue write for slot {}", slot);
+                                            eprintln!("\n❌ Failed to queue write for slot {slot}");
                                             stats.failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                         } else {
                                             stats.completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                         }
                                     }
                                     Err(e) => {
-                                        eprintln!("\n❌ Failed to serialize slot {}: {}", slot, e);
+                                        eprintln!("\n❌ Failed to serialize slot {slot}: {e}");
                                         stats.failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                     }
                                 }
@@ -1841,23 +1839,23 @@ async fn main() -> Result<()> {
 
             println!("\n\n✅ Download complete!");
             println!("📊 Summary:");
-            println!("   Epoch: {}", epoch);
+            println!("   Epoch: {epoch}");
             println!("   Directory: {}", dir_name_final.as_ref());
-            println!("   Total slots in epoch: {}", SLOTS_PER_EPOCH);
-            println!("   Slots processed: {}", total_processed);
-            println!("   ✅ Successfully downloaded: {} slots", completed_count);
+            println!("   Total slots in epoch: {SLOTS_PER_EPOCH}");
+            println!("   Slots processed: {total_processed}");
+            println!("   ✅ Successfully downloaded: {completed_count} slots");
             if skipped_count > 0 {
-                println!("   ⏭️  Skipped (already exist): {} slots", skipped_count);
+                println!("   ⏭️  Skipped (already exist): {skipped_count} slots");
             }
             if not_found_count > 0 {
-                println!("   🚫 Skipped by Solana: {} slots", not_found_count);
+                println!("   🚫 Skipped by Solana: {not_found_count} slots");
             }
             // Only show failed count if it's significant
             if failed_count > 10 {
-                println!("   ⚠️  Failed: {} slots", failed_count);
+                println!("   ⚠️  Failed: {failed_count} slots");
             }
             if rate_limited_count > 0 {
-                println!("   ⚠️  Rate limited: {} slots", rate_limited_count);
+                println!("   ⚠️  Rate limited: {rate_limited_count} slots");
                 println!("   💡 Try using --rate-limit with a lower value");
             }
             println!("   ⏱️  Time taken: {:.2}s", elapsed.as_secs_f64());
@@ -1872,8 +1870,7 @@ async fn main() -> Result<()> {
             if completed_count > 0 {
                 let avg_slot_time = elapsed.as_secs_f64() / completed_count as f64;
                 println!(
-                    "   📦 Avg time per slot: {:.2}s (includes download + save)",
-                    avg_slot_time
+                    "   📦 Avg time per slot: {avg_slot_time:.2}s (includes download + save)"
                 );
             }
         }
@@ -1906,7 +1903,7 @@ async fn main() -> Result<()> {
                                     println!("🔑 You're now authenticated! The CLI will use your saved credentials.");
                                 }
                                 Err(e) => {
-                                    println!("⚠️  Warning: Could not save credentials: {}", e);
+                                    println!("⚠️  Warning: Could not save credentials: {e}");
                                     println!("🔑 Token: {}", auth_response.token);
                                     println!("\n💡 Save this token or set SOLANA_API_TOKEN environment variable");
                                     println!("   export SOLANA_API_TOKEN={}", auth_response.token);
@@ -1914,7 +1911,7 @@ async fn main() -> Result<()> {
                             }
                         }
                         Err(e) => {
-                            println!("❌ Registration failed: {}", e);
+                            println!("❌ Registration failed: {e}");
                             std::process::exit(1);
                         }
                     }
@@ -1949,7 +1946,7 @@ async fn main() -> Result<()> {
                                     println!("🔑 You're now authenticated! The CLI will use your saved credentials.");
                                 }
                                 Err(e) => {
-                                    println!("⚠️  Warning: Could not save credentials: {}", e);
+                                    println!("⚠️  Warning: Could not save credentials: {e}");
                                     println!("🔑 Token: {}", auth_response.token);
                                     println!("\n💡 Save this token or set SOLANA_API_TOKEN environment variable");
                                     println!("   export SOLANA_API_TOKEN={}", auth_response.token);
@@ -1957,7 +1954,7 @@ async fn main() -> Result<()> {
                             }
                         }
                         Err(e) => {
-                            println!("❌ Login failed: {}", e);
+                            println!("❌ Login failed: {e}");
                             std::process::exit(1);
                         }
                     }
@@ -1984,7 +1981,7 @@ async fn main() -> Result<()> {
 
                     // Check saved credentials
                     if let Some(email) = &config.email {
-                        println!("\n👤 Logged in as: {}", email);
+                        println!("\n👤 Logged in as: {email}");
                     }
 
                     if config.api_key.is_some() {
@@ -2065,7 +2062,7 @@ async fn main() -> Result<()> {
                             }
                         }
                         Err(e) => {
-                            println!("❌ Failed to clear credentials: {}", e);
+                            println!("❌ Failed to clear credentials: {e}");
                             std::process::exit(1);
                         }
                     }
@@ -2076,7 +2073,7 @@ async fn main() -> Result<()> {
         Commands::ApiKeys { command } => {
             match command {
                 ApiKeyCommands::Create { name, token } => {
-                    println!("🔑 Creating API key '{}'...", name);
+                    println!("🔑 Creating API key '{name}'...");
 
                     let token = get_token(token)?;
                     let client = client.with_token(token);
@@ -2100,7 +2097,7 @@ async fn main() -> Result<()> {
                                     println!("📈 You now have {} tier rate limits!", api_key.tier);
                                 }
                                 Err(e) => {
-                                    println!("\n⚠️  Warning: Could not save API key: {}", e);
+                                    println!("\n⚠️  Warning: Could not save API key: {e}");
                                     println!(
                                         "💡 Save this key securely - it won't be shown again!"
                                     );
@@ -2110,7 +2107,7 @@ async fn main() -> Result<()> {
                             }
                         }
                         Err(e) => {
-                            println!("❌ Failed to create API key: {}", e);
+                            println!("❌ Failed to create API key: {e}");
                             std::process::exit(1);
                         }
                     }
@@ -2134,14 +2131,14 @@ async fn main() -> Result<()> {
                             }
                         }
                         Err(e) => {
-                            println!("❌ Failed to list API keys: {}", e);
+                            println!("❌ Failed to list API keys: {e}");
                             std::process::exit(1);
                         }
                     }
                 }
 
                 ApiKeyCommands::Delete { key_id, token } => {
-                    println!("🗑️  Deleting API key {}...", key_id);
+                    println!("🗑️  Deleting API key {key_id}...");
 
                     let token = get_token(token)?;
                     let client = client.with_token(token);
@@ -2151,7 +2148,7 @@ async fn main() -> Result<()> {
                             println!("✅ API key deleted successfully!");
                         }
                         Err(e) => {
-                            println!("❌ Failed to delete API key: {}", e);
+                            println!("❌ Failed to delete API key: {e}");
                             std::process::exit(1);
                         }
                     }
@@ -2244,7 +2241,7 @@ mod tests {
         } else if eta_seconds > 60.0 {
             format!("{:.1}m", eta_seconds / 60.0)
         } else {
-            format!("{:.0}s", eta_seconds)
+            format!("{eta_seconds:.0}s")
         };
         assert_eq!(eta_formatted, "2.0h");
 
@@ -2255,7 +2252,7 @@ mod tests {
         } else if eta_seconds > 60.0 {
             format!("{:.1}m", eta_seconds / 60.0)
         } else {
-            format!("{:.0}s", eta_seconds)
+            format!("{eta_seconds:.0}s")
         };
         assert_eq!(eta_formatted, "2.5m");
 
@@ -2266,7 +2263,7 @@ mod tests {
         } else if eta_seconds > 60.0 {
             format!("{:.1}m", eta_seconds / 60.0)
         } else {
-            format!("{:.0}s", eta_seconds)
+            format!("{eta_seconds:.0}s")
         };
         assert_eq!(eta_formatted, "45s");
     }
@@ -2381,7 +2378,7 @@ mod tests {
     fn test_file_path_construction() {
         let dir = "epoch_0";
         let slot = 12345;
-        let file_path = format!("{}/slot_{}.json", dir, slot);
+        let file_path = format!("{dir}/slot_{slot}.json");
 
         assert_eq!(file_path, "epoch_0/slot_12345.json");
 
