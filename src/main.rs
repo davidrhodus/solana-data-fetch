@@ -1678,8 +1678,7 @@ async fn main() -> Result<()> {
                             " ".repeat(bar_width.saturating_sub(filled))
                         );
 
-                        print!("\r{} {:.1}% | ✅ {} | ⏭️  {} | 🚫 {} | ETA: {} | {:.0} req/s | {:.0} done/s",
-                            bar, percent, done, skip_count, nf_count, eta_formatted, request_rate, rate);
+                        print!("\r{bar} {percent:.1}% | ✅ {done} | ⏭️  {skip_count} | 🚫 {nf_count} | ETA: {eta_formatted} | {request_rate:.0} req/s | {rate:.0} done/s");
                         use std::io::{self, Write};
                         let _ = io::stdout().flush();
                     }
