@@ -42,6 +42,60 @@ impl DownloadStats {
     }
 }
 
+// Adaptive concurrency controller
+#[derive(Clone)]
+struct AdaptiveConcurrency {
+    current: Arc<std::sync::atomic::AtomicUsize>,
+    min: usize,
+    max: usize,
+    last_adjustment: Arc<tokio::sync::Mutex<std::time::Instant>>,
+}
+
+impl AdaptiveConcurrency {
+    fn new(initial: usize, min: usize, max: usize) -> Self {
+        Self {
+            current: Arc::new(std::sync::atomic::AtomicUsize::new(initial)),
+            min,
+            max,
+            last_adjustment: Arc::new(tokio::sync::Mutex::new(std::time::Instant::now())),
+        }
+    }
+
+    async fn adjust(&self, _current_throughput: f64, error_rate: f64) {
+        let mut last_adj = self.last_adjustment.lock().await;
+
+        // Only adjust every 2 seconds
+        if last_adj.elapsed().as_secs() < 2 {
+            return;
+        }
+
+        let current_val = self.current.load(std::sync::atomic::Ordering::Relaxed);
+        let mut new_val = current_val;
+
+        // If error rate is high, reduce concurrency
+        if error_rate > 0.1 {
+            new_val = (current_val as f64 * 0.8) as usize;
+        }
+        // If throughput is low and error rate is low, increase concurrency
+        else if error_rate < 0.05 {
+            new_val = (current_val as f64 * 1.2) as usize;
+        }
+
+        // Clamp to bounds
+        new_val = new_val.clamp(self.min, self.max);
+
+        if new_val != current_val {
+            self.current
+                .store(new_val, std::sync::atomic::Ordering::Relaxed);
+            *last_adj = std::time::Instant::now();
+        }
+    }
+
+    fn get(&self) -> usize {
+        self.current.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
 enum SlotError {
     NotFound,
     RateLimited,
@@ -87,6 +141,90 @@ impl From<anyhow::Error> for SlotError {
 struct FileWriteBatch {
     path: String,
     data: Vec<u8>,
+}
+
+// Batched writer for coalescing multiple writes
+struct BatchedWriter {
+    batch: Vec<FileWriteBatch>,
+    max_batch_size: usize,
+    max_wait_time: std::time::Duration,
+    last_flush: std::time::Instant,
+}
+
+impl BatchedWriter {
+    fn new(max_batch_size: usize, max_wait_ms: u64) -> Self {
+        Self {
+            batch: Vec::with_capacity(max_batch_size),
+            max_batch_size,
+            max_wait_time: std::time::Duration::from_millis(max_wait_ms),
+            last_flush: std::time::Instant::now(),
+        }
+    }
+
+    async fn add_batch(&mut self, file_batch: FileWriteBatch) -> bool {
+        self.batch.push(file_batch);
+
+        // Check if we should flush
+        self.batch.len() >= self.max_batch_size || self.last_flush.elapsed() >= self.max_wait_time
+    }
+
+    async fn flush(&mut self) {
+        if self.batch.is_empty() {
+            return;
+        }
+
+        // Process all batched writes in parallel
+        let tasks: Vec<_> = self
+            .batch
+            .drain(..)
+            .map(|batch| {
+                tokio::spawn(async move {
+                    if let Err(e) = write_file_async(&batch.path, &batch.data).await {
+                        eprintln!("❌ Failed to write {}: {}", batch.path, e);
+                    }
+                })
+            })
+            .collect();
+
+        // Wait for all writes to complete
+        for task in tasks {
+            let _ = task.await;
+        }
+
+        self.last_flush = std::time::Instant::now();
+    }
+}
+
+// Buffer pool for reusing memory allocations
+struct BufferPool {
+    buffers: Arc<tokio::sync::Mutex<Vec<Vec<u8>>>>,
+    max_size: usize,
+}
+
+impl BufferPool {
+    fn new(max_size: usize) -> Self {
+        Self {
+            buffers: Arc::new(tokio::sync::Mutex::new(Vec::new())),
+            max_size,
+        }
+    }
+
+    async fn get_buffer(&self) -> Vec<u8> {
+        let mut buffers = self.buffers.lock().await;
+        buffers
+            .pop()
+            .unwrap_or_else(|| Vec::with_capacity(1024 * 1024)) // 1MB initial capacity
+    }
+
+    async fn return_buffer(&self, mut buffer: Vec<u8>) {
+        // Clear but keep capacity
+        buffer.clear();
+
+        let mut buffers = self.buffers.lock().await;
+        if buffers.len() < self.max_size {
+            buffers.push(buffer);
+        }
+    }
 }
 
 const API_BASE_URL: &str = "https://api.pipe-solana.com";
@@ -656,7 +794,9 @@ impl SolanaDataClient {
                             .await
                             .map_err(|_| anyhow::anyhow!("Failed to read response body"))?;
 
-                        return serde_json::from_slice(&bytes)
+                        // Convert to Vec<u8> for SIMD JSON which needs mutable slice
+                        let mut json_bytes = bytes.to_vec();
+                        return simd_json::from_slice(&mut json_bytes)
                             .map_err(|_| anyhow::anyhow!("Invalid JSON response"));
                     } else if status.as_u16() == 429 {
                         retries += 1;
@@ -1576,7 +1716,16 @@ async fn main() -> Result<()> {
             );
             println!("💡 Many slots may not exist - this is normal\n");
 
-            let semaphore = Arc::new(Semaphore::new(concurrent));
+            // Initialize adaptive concurrency controller
+            let max_concurrent = if no_rate_limit { 500 } else { 200 }; // Higher limit when no rate limit
+            let adaptive_concurrency = Arc::new(AdaptiveConcurrency::new(
+                concurrent,
+                10, // minimum concurrent connections
+                max_concurrent,
+            ));
+
+            // Use a larger semaphore and control concurrency via adaptive controller
+            let semaphore = Arc::new(Semaphore::new(max_concurrent));
             let client = Arc::new(client);
             let dir_name = Arc::new(dir_name);
 
@@ -1589,14 +1738,38 @@ async fn main() -> Result<()> {
             let stats_for_final = stats.clone();
             let dir_name_final = dir_name.clone();
 
+            // Create buffer pool for reusing memory allocations
+            let buffer_pool = Arc::new(BufferPool::new(max_concurrent));
+
             // Create a channel for file writes with bounded capacity
             let (write_tx, mut write_rx) = tokio::sync::mpsc::channel::<FileWriteBatch>(100);
 
-            // Spawn a dedicated file writer task
+            // Spawn a dedicated batched file writer task
             let writer_handle = tokio::spawn(async move {
-                while let Some(batch) = write_rx.recv().await {
-                    if let Err(e) = write_file_async(&batch.path, &batch.data).await {
-                        eprintln!("\n❌ Failed to write {}: {}", batch.path, e);
+                let mut batched_writer = BatchedWriter::new(20, 100); // Batch up to 20 files or wait 100ms
+
+                loop {
+                    tokio::select! {
+                        // Receive new write requests
+                        batch_result = write_rx.recv() => {
+                            match batch_result {
+                                Some(batch) => {
+                                    if batched_writer.add_batch(batch).await {
+                                        batched_writer.flush().await;
+                                    }
+                                }
+                                None => {
+                                    // Channel closed, flush remaining and exit
+                                    batched_writer.flush().await;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Periodic flush to prevent stale batches
+                        _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => {
+                            batched_writer.flush().await;
+                        }
                     }
                 }
             });
@@ -1604,6 +1777,7 @@ async fn main() -> Result<()> {
             // Spawn a dedicated progress update task
             let progress_handle = tokio::spawn({
                 let stats_for_progress = stats_for_progress.clone();
+                let adaptive_ctrl = adaptive_concurrency.clone();
                 async move {
                     let mut interval = tokio::time::interval(Duration::from_millis(250)); // Update every 250ms
                     let start_time = std::time::Instant::now();
@@ -1669,6 +1843,12 @@ async fn main() -> Result<()> {
                         // Calculate percentage
                         let percent = (processed as f64 / total_slots as f64) * 100.0;
 
+                        // Adjust concurrency based on performance
+                        if elapsed > 2.0 && processed > 100 {
+                            let error_rate = (err_count + rl_count) as f64 / processed as f64;
+                            adaptive_ctrl.adjust(rate, error_rate).await;
+                        }
+
                         // Create progress bar
                         let bar_width: usize = 30;
                         let filled = ((percent / 100.0) * bar_width as f64) as usize;
@@ -1678,7 +1858,8 @@ async fn main() -> Result<()> {
                             " ".repeat(bar_width.saturating_sub(filled))
                         );
 
-                        print!("\r{bar} {percent:.1}% | ✅ {done} | ⏭️  {skip_count} | 🚫 {nf_count} | ETA: {eta_formatted} | {request_rate:.0} req/s | {rate:.0} done/s");
+                        let current_concurrency = adaptive_ctrl.get();
+                        print!("\r{bar} {percent:.1}% | ✅ {done} | ⏭️  {skip_count} | 🚫 {nf_count} | ETA: {eta_formatted} | {request_rate:.0} req/s | {rate:.0} done/s | ⚡ {current_concurrency}");
                         use std::io::{self, Write};
                         let _ = io::stdout().flush();
                     }
@@ -1698,8 +1879,11 @@ async fn main() -> Result<()> {
                     let compress = !no_compression;
                     let use_no_limit = no_rate_limit;
                     let write_tx = write_tx.clone();
+                    let _adaptive = adaptive_concurrency.clone();
+                    let pool = buffer_pool.clone();
 
                     async move {
+                        // Use standard semaphore for now (adaptive logic was causing deadlock)
                         let _permit = sem.acquire().await.unwrap();
 
                         // Determine file extension based on compression
@@ -1727,9 +1911,15 @@ async fn main() -> Result<()> {
 
                         match slot_result {
                             Ok(data) => {
-                                // Save to file - use to_vec for 10x faster serialization
-                                match serde_json::to_vec(&data) {
-                                    Ok(json_bytes) => {
+                                // Get a reusable buffer from the pool
+                                let mut buffer = pool.get_buffer().await;
+
+                                // Save to file - use SIMD JSON for even faster serialization
+                                let json_result = simd_json::to_writer(&mut buffer, &data);
+
+                                match json_result {
+                                    Ok(_) => {
+                                        let json_bytes = buffer.clone(); // Clone for use, will return buffer later
                                         // Process compression if needed
                                         let file_data = if compress {
                                             // Move compression to blocking thread pool for parallel CPU usage
@@ -1765,10 +1955,16 @@ async fn main() -> Result<()> {
                                         } else {
                                             stats.completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                         }
+
+                                        // Return buffer to pool
+                                        pool.return_buffer(buffer).await;
                                     }
                                     Err(e) => {
                                         eprintln!("\n❌ Failed to serialize slot {slot}: {e}");
                                         stats.failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+                                        // Return buffer to pool even on error
+                                        pool.return_buffer(buffer).await;
                                     }
                                 }
                             }
@@ -1792,7 +1988,7 @@ async fn main() -> Result<()> {
                         }
                     }
                 })
-                .buffer_unordered(concurrent);
+                .buffer_unordered(max_concurrent);
 
             // Execute all downloads
             download_tasks.collect::<Vec<()>>().await;

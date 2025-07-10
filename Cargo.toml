@@ -21,6 +21,7 @@ path = "src/main.rs"
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+simd-json = { version = "0.13", features = ["serde_impl"] }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
@@ -37,3 +38,4 @@ zstd = "0.13"
 tempfile = "3.0"
 assert_cmd = "2.0"
 predicates = "3.0"
+futures = "0.3"

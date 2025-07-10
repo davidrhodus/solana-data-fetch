@@ -33,3 +33,8 @@ logs/
 *.profraw
 *.profdata
 /coverage/
+
+# Benchmark artifacts
+benchmark_*.txt
+benchmark.sh
+/benchmark_test_*/
