@@ -3,7 +3,6 @@
 
 use solana_data_fetch::*;
 use std::time::Duration;
-use tokio;
 
 #[tokio::test]
 async fn test_simd_json_error_handling() {
@@ -338,9 +337,9 @@ fn test_write_coalescing_error_handling() {
     let mut batch = TestBatch::new(3);
 
     // Test normal operation
-    assert!(batch.add_item("item1".to_string()).unwrap() == false);
-    assert!(batch.add_item("item2".to_string()).unwrap() == false);
-    assert!(batch.add_item("item3".to_string()).unwrap() == true); // Should flush
+    assert!(!batch.add_item("item1".to_string()).unwrap());
+    assert!(!batch.add_item("item2".to_string()).unwrap());
+    assert!(batch.add_item("item3".to_string()).unwrap()); // Should flush
 
     let flushed = batch.flush();
     assert_eq!(flushed.len(), 3);
@@ -351,7 +350,7 @@ fn test_write_coalescing_error_handling() {
     assert!(result.is_err(), "Should reject oversized items");
 
     // Batch should still work after error
-    assert!(batch.add_item("item4".to_string()).unwrap() == false);
+    assert!(!batch.add_item("item4".to_string()).unwrap());
     assert_eq!(batch.items.len(), 1);
 }
 
