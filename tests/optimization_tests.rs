@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio;
 
 // Import the optimized structures from main.rs
 use solana_data_fetch::*;
@@ -294,5 +293,4 @@ async fn test_connection_pre_warming_effect() {
     println!("Connection pre-warming test: {}/5 successful", successful);
 }
 
-use futures;
 use reqwest::Client;

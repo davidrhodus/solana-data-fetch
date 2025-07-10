@@ -38,3 +38,8 @@ logs/
 benchmark_*.txt
 benchmark.sh
 /benchmark_test_*/
+
+# CI artifacts
+cobertura.xml
+tarpaulin-report.html
+*.profraw
